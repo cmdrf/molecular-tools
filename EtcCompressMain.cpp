@@ -91,8 +91,10 @@ std::vector<uint8_t> CompressImage(TaskDispatcher& queue, const uint8_t* image, 
 	return output;
 }
 
-void WriteDdsHeader(FILE* file, int width, int height, bool alpha, int mipmapCount)
+void WriteDdsHeader(FILE* file, int width, int height, bool alpha, int mipmapCount, bool etc2)
 {
+	assert(!(alpha && !etc2)); // ETC1 doesn't support alpha
+
 	uint32_t magic = 0x20534444;
 	DdsFile::Header header;
 	header.size = 124;
@@ -106,7 +108,10 @@ void WriteDdsHeader(FILE* file, int width, int height, bool alpha, int mipmapCou
 		header.reserved1[i] = 0;
 	header.pixelFormat.size = 32;
 	header.pixelFormat.flags = DdsFile::PixelFormatHeader::kFourCc;
-	header.pixelFormat.fourCc = alpha ? DdsFile::PixelFormatHeader::kEtc2Alpha : DdsFile::PixelFormatHeader::kEtc2;
+	if(etc2)
+		header.pixelFormat.fourCc = alpha ? DdsFile::PixelFormatHeader::kEtc2Alpha : DdsFile::PixelFormatHeader::kEtc2;
+	else
+		header.pixelFormat.fourCc = DdsFile::PixelFormatHeader::kEtc1;
 	header.pixelFormat.rgbBitCount = 0;
 	header.pixelFormat.rBitMask = 0;
 	header.pixelFormat.gBitMask = 0;
@@ -125,18 +130,34 @@ void WriteDdsHeader(FILE* file, int width, int height, bool alpha, int mipmapCou
 	}
 }
 
-void WriteKtxHeader(FILE* file, int width, int height, bool alpha, int mipmapCount)
+void WriteKtxHeader(FILE* file, int width, int height, bool alpha, int mipmapCount, bool etc2, bool srgb)
 {
+	assert(!(alpha && !etc2)); // ETC1 doesn't support alpha
+
 	KtxFile::Header header;
 	memcpy(header.identifier, KtxFile::Header::kKtxIdentifier, 12);
 	header.endianness = 0x04030201;
 	header.glType = 0;
 	header.glTypeSize = 1;
 	header.glFormat = 0;
-	if(alpha)
-		header.glInternalFormat = GlConstants::COMPRESSED_RGBA8_ETC2_EAC;
+	if(srgb)
+	{
+		if(alpha)
+			header.glInternalFormat = GlConstants::COMPRESSED_SRGB8_ALPHA8_ETC2_EAC;
+		else if(etc2)
+			header.glInternalFormat = GlConstants::COMPRESSED_SRGB8_ETC2;
+		else
+			header.glInternalFormat = GlConstants::ETC1_RGB8_OES;
+	}
 	else
-		header.glInternalFormat = GlConstants::COMPRESSED_RGB8_ETC2;
+	{
+		if(alpha)
+			header.glInternalFormat = GlConstants::COMPRESSED_RGBA8_ETC2_EAC;
+		else if(etc2)
+			header.glInternalFormat = GlConstants::COMPRESSED_RGB8_ETC2;
+		else
+			header.glInternalFormat = GlConstants::ETC1_RGB8_OES;
+	}
 	header.glBaseInternalFormat = 0;
 	header.pixelWidth = width;
 	header.pixelHeight = height;
@@ -180,6 +201,7 @@ int main(int argc, char** argv)
 	CommandLineParser::PositionalArg<std::string> outputFile(parser, "output file", "Output file");
 	CommandLineParser::Flag useEtc1Flag(parser, "use-etc1", "Use ETC1.");
 	CommandLineParser::Flag useEtc2Flag(parser, "use-etc2", "Use ETC2. This is the default.");
+	CommandLineParser::Flag nonColorData(parser, "non-color-data", "Treat pixel values as linear instead of gamma encoded");
 
 	try
 	{
@@ -239,9 +261,9 @@ int main(int argc, char** argv)
 
 	int mipMapCount = std::log2(std::min(width, height)) + 1;
 	if(writeKtx)
-		WriteKtxHeader(file, width, height, alpha, mipMapCount);
+		WriteKtxHeader(file, width, height, alpha, mipMapCount, useEtc2, !nonColorData);
 	else
-		WriteDdsHeader(file, width, height, alpha, mipMapCount);
+		WriteDdsHeader(file, width, height, alpha, mipMapCount, useEtc2);
 	rg_etc1::pack_etc1_block_init();
 
 	rg_etc1::etc1_pack_params params;
@@ -256,7 +278,10 @@ int main(int argc, char** argv)
 		int newWidth = width / 2;
 		int newHeight = height / 2;
 		std::vector<uint8_t> newImage(newWidth * newHeight * components);
-		stbir_resize_uint8_srgb(oldImage.data(), width, height, width * components, newImage.data(), newWidth, newHeight, newWidth * components, components, alphaChannel, 0);
+		if(nonColorData)
+			stbir_resize_uint8(oldImage.data(), width, height, width * components, newImage.data(), newWidth, newHeight, newWidth * components, components);
+		else
+			stbir_resize_uint8_srgb(oldImage.data(), width, height, width * components, newImage.data(), newWidth, newHeight, newWidth * components, components, alphaChannel, 0);
 
 		std::vector<uint8_t> compressed = CompressImage(queue, newImage.data(), newWidth, newHeight, components, params, useEtc2, alpha);
 		WriteData(file, compressed, writeKtx);
