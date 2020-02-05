@@ -10,6 +10,7 @@
 #include <molecular/util/TaskDispatcher.h>
 #include <molecular/util/KtxFile.h>
 #include <molecular/gfx/opengl/GlConstants.h>
+#include <molecular/util/CommandLineParser.h>
 #include <molecular/util/StringUtils.h>
 
 using namespace molecular::gfx;
@@ -174,41 +175,44 @@ void WriteData(FILE* file, std::vector<uint8_t>& data, bool writeSize)
 
 int main(int argc, char** argv)
 {
-	if(argc < 3)
+	CommandLineParser parser;
+	CommandLineParser::PositionalArg<std::string> inputFile(parser, "input file", "input file");
+	CommandLineParser::PositionalArg<std::string> outputFile(parser, "output file", "output file");
+	CommandLineParser::Flag useEtc1Flag(parser, "use-etc1", "Use ETC1.");
+	CommandLineParser::Flag useEtc2Flag(parser, "use-etc2", "Use ETC2. This is the default.");
+
+	try
 	{
-		std::cerr << "Usage: " << argv[0] << " <input file> <output file>" << std::endl;
-		return 1;
+		parser.Parse(argc, argv);
 	}
-	const char* inputFile = nullptr;
-	const char* outputFile = nullptr;
-	bool useEtc2 = false; // TODO: Command line option
+	catch(std::exception& e)
+	{
+		std::cerr << e.what() << std::endl;
+		return EXIT_FAILURE;
+	}
+
+	if(useEtc1Flag && useEtc2Flag)
+	{
+		std::cerr << "Specify only one compression algorithm!\n";
+		return EXIT_FAILURE;
+	}
+
+	if(!inputFile | !outputFile)
+	{
+		std::cerr << "Please specify input and output file!\n";
+		return EXIT_FAILURE;
+	}
+
+	bool useEtc2 = true;
+	if(useEtc1Flag)
+		useEtc2 = false;
+
 	bool alpha = false; // Only possible with ETC2
 	bool writeKtx = false;
-	bool normal = false; // TODO: Evaluate
 
-	for(int i = 1; i < argc; i++)
-	{
-		if(!strcmp(argv[i], "-normal")) // nvcompress compatiblity
-			normal = true;
-		else if(argv[i][0] == '-')
-		{
-			std::cerr << "Unknown option " << argv[i] << std::endl;
-			return EXIT_FAILURE;
-		}
-		else if(!inputFile)
-			inputFile = argv[i];
-		else if(!outputFile)
-			outputFile = argv[i];
-		else
-		{
-			std::cerr << "Excess command line argument \"" << argv[i] << "\"\n";
-			return EXIT_FAILURE;
-		}
-	}
-
-	if(StringUtils::EndsWith(outputFile, ".ktx"))
+	if(StringUtils::EndsWith(*outputFile, ".ktx"))
 		writeKtx = true;
-	else if(!StringUtils::EndsWith(outputFile, ".dds"))
+	else if(!StringUtils::EndsWith(*outputFile, ".dds"))
 	{
 		std::cerr << "Unknown output format" << std::endl;
 		return EXIT_FAILURE;
@@ -217,7 +221,7 @@ int main(int argc, char** argv)
 	TaskDispatcher queue;
 
 	int width = 0, height = 0, components = 0;
-	uint8_t* image = stbi_load(inputFile, &width, &height, &components, 0);
+	uint8_t* image = stbi_load(inputFile->c_str(), &width, &height, &components, 0);
 	if(!image)
 	{
 		std::cerr << stbi_failure_reason() << std::endl;
@@ -231,7 +235,7 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	FILE* file = fopen(outputFile, "wb");
+	FILE* file = fopen(outputFile->c_str(), "wb");
 	if(!file)
 	{
 		std::cerr << "Error open output file: " << StringUtils::StrError(errno) << std::endl;
