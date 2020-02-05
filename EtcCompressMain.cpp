@@ -176,8 +176,8 @@ void WriteData(FILE* file, std::vector<uint8_t>& data, bool writeSize)
 int main(int argc, char** argv)
 {
 	CommandLineParser parser;
-	CommandLineParser::PositionalArg<std::string> inputFile(parser, "input file", "input file");
-	CommandLineParser::PositionalArg<std::string> outputFile(parser, "output file", "output file");
+	CommandLineParser::PositionalArg<std::string> inputFile(parser, "input file", "Input file");
+	CommandLineParser::PositionalArg<std::string> outputFile(parser, "output file", "Output file");
 	CommandLineParser::Flag useEtc1Flag(parser, "use-etc1", "Use ETC1.");
 	CommandLineParser::Flag useEtc2Flag(parser, "use-etc2", "Use ETC2. This is the default.");
 
@@ -188,18 +188,13 @@ int main(int argc, char** argv)
 	catch(std::exception& e)
 	{
 		std::cerr << e.what() << std::endl;
+		parser.PrintHelp("etccompress");
 		return EXIT_FAILURE;
 	}
 
 	if(useEtc1Flag && useEtc2Flag)
 	{
 		std::cerr << "Specify only one compression algorithm!\n";
-		return EXIT_FAILURE;
-	}
-
-	if(!inputFile | !outputFile)
-	{
-		std::cerr << "Please specify input and output file!\n";
 		return EXIT_FAILURE;
 	}
 
