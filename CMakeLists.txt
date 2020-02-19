@@ -21,3 +21,10 @@ set_source_files_properties(
 	PROPERTIES COMPILE_FLAGS -O3 # Also optimize on debug builds
 )
 
+# meshinfo
+add_executable(molecularmeshinfo
+	MeshInfoMain.cpp
+)
+target_link_libraries(molecularmeshinfo
+	molecular-gfx
+)
