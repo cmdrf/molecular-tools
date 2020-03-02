@@ -28,11 +28,10 @@ SOFTWARE.
 #include <molecular/util/DdsFile.h>
 #include <molecular/util/TaskDispatcher.h>
 #include <molecular/util/KtxFile.h>
-#include <molecular/gfx/opengl/GlConstants.h>
+#include <molecular/util/GlConstants.h>
 #include <molecular/util/CommandLineParser.h>
 #include <molecular/util/StringUtils.h>
 
-using namespace molecular::gfx;
 using namespace molecular::util;
 
 #define STB_IMAGE_IMPLEMENTATION

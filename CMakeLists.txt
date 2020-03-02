@@ -12,7 +12,7 @@ add_executable(etccompress
 
 target_link_libraries(etccompress
 	stb
-	molecular-gfx
+	molecular-util
 )
 
 set_source_files_properties(
@@ -26,5 +26,6 @@ add_executable(molecularmeshinfo
 	MeshInfoMain.cpp
 )
 target_link_libraries(molecularmeshinfo
-	molecular-gfx
+	molecular-util
+	molecular-meshfile
 )
