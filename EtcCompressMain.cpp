@@ -229,7 +229,7 @@ int main(int argc, char** argv)
 	catch(std::exception& e)
 	{
 		std::cerr << e.what() << std::endl;
-		parser.PrintHelp("etccompress");
+		parser.PrintHelp();
 		return EXIT_FAILURE;
 	}
 
